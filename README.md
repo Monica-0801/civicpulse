@@ -433,4 +433,4 @@ The timed faculty walkthrough, run checklist, validated demo outputs, and
 likely-question answers are in
 [`docs/CivicPulse_Demo_Guide.md`](docs/CivicPulse_Demo_Guide.md).
 #   C i v i c P u l s e  
- 
+ # CivicPulse
