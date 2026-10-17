@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a24">
+  <title>CivicPulse | Complaint intelligence</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101a24;
+      --panel: #172632;
+      --panel-soft: #1c303c;
+      --line: #2a414e;
+      --text: #edf4f5;
+      --muted: #a4b5bc;
+      --mint: #69e0bd;
+      --blue: #8bb8ff;
+      --amber: #ffc47a;
+      --danger: #ff938a;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 80% -10%, #1d4650 0, transparent 36rem),
+        var(--bg);
+    }
+    button { font: inherit; }
+    .shell { width: min(1440px, calc(100% - 40px)); margin: 0 auto; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 26px 0 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid #4f8f89;
+      border-radius: 13px;
+      color: var(--mint);
+      background: #183938;
+      font-size: 22px;
+      font-weight: 800;
+    }
+    h1 { margin: 0; font-size: 20px; letter-spacing: -.03em; }
+    .subtitle { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .actions { display: flex; align-items: center; gap: 14px; }
+    .run-badge, .refresh {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      background: #172632;
+      font-size: 12px;
+    }
+    .run-badge { padding: 9px 12px; }
+    .refresh { padding: 9px 13px; color: var(--text); cursor: pointer; }
+    .refresh:hover, .refresh:focus-visible { border-color: var(--mint); outline: none; }
+    .refresh:disabled { cursor: wait; opacity: .6; }
+    .workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; }
+    .sidebar { padding-top: 26px; }
+    .sidebar-label { margin: 0 0 10px 10px; color: #82969e; font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .tab-nav { position: sticky; top: 18px; display: grid; gap: 6px; }
+    .tab-button {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .tab-button:hover { color: var(--text); background: #1a2a35; }
+    .tab-button[aria-selected="true"] { border-color: #315b56; color: var(--mint); background: #18322f; }
+    .tab-icon { width: 20px; text-align: center; font-size: 15px; }
+    .main-content { min-width: 0; padding: 28px 0 48px; }
+    .tab-panel[hidden] { display: none; }
+    .tab-title { margin: 0 0 16px; }
+    .tab-title p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .eyebrow { color: var(--mint); font-size: 11px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    h2 { margin: 7px 0 0; font-size: clamp(22px, 3vw, 32px); letter-spacing: -.045em; }
+    .updated { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .notice {
+      margin-bottom: 18px;
+      padding: 12px 15px;
+      border: 1px solid #435c61;
+      border-radius: 12px;
+      color: #c5d5d4;
+      background: #1c3034;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .notice strong { color: var(--amber); }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 8px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #172632;
+    }
+    .filter-field { display: grid; min-width: 0; gap: 6px; color: var(--muted); font-size: 11px; }
+    .filter-field input, .filter-field select {
+      width: 100%;
+      min-width: 0;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid #3a5360;
+      border-radius: 8px;
+      color: var(--text);
+      background: #101e28;
+      font: inherit;
+    }
+    .filter-actions { display: flex; gap: 8px; }
+    .filter-actions button {
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid #3d5967;
+      border-radius: 8px;
+      color: var(--text);
+      background: #1b303c;
+      cursor: pointer;
+    }
+    .coverage { margin: 0 0 14px; color: var(--muted); font-size: 11px; }
+    .error {
+      display: none;
+      margin-bottom: 18px;
+      padding: 13px 15px;
+      border: 1px solid #834c4c;
+      border-radius: 12px;
+      color: #ffd4d0;
+      background: #3b2429;
+      font-size: 13px;
+    }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+    .kpi, .panel {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: linear-gradient(145deg, #1b2c38, #15232e);
+      box-shadow: 0 12px 36px #07111b33;
+    }
+    .kpi { min-height: 116px; padding: 18px 19px; }
+    .kpi-label { color: var(--muted); font-size: 12px; }
+    .kpi-value { margin-top: 13px; font-size: 28px; font-weight: 750; letter-spacing: -.04em; }
+    .kpi-foot { margin-top: 4px; color: #91a7ad; font-size: 11px; }
+    .insight-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .insight-kpi { min-width: 0; min-height: 88px; padding: 13px 15px; }
+    .insight-kpi .kpi-value { margin-top: 8px; font-size: 23px; }
+    .insight-kpi .kpi-foot { line-height: 1.35; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .panel { min-width: 0; padding: 18px; }
+    .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    h3 { margin: 0; font-size: 15px; letter-spacing: -.015em; }
+    .panel-desc { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .chart-wrap { position: relative; width: 100%; height: 260px; }
+    .region-chart-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(150px, .85fr); align-items: center; gap: 12px; }
+    .region-chart-wrap { height: 250px; }
+    .region-total { margin: 0 0 4px; color: var(--muted); font-size: 11px; }
+    .region-total strong { margin-right: 5px; color: var(--text); font-size: 21px; }
+    .region-legend { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .region-legend li { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 7px; color: #cbd8dc; font-size: 11px; }
+    .region-swatch { width: 9px; height: 9px; border-radius: 3px; }
+    .region-share { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .insight-chart { height: 280px; }
+    .zip-map-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(210px, .8fr); gap: 16px; }
+    .zip-map-shell { min-height: 470px; overflow: hidden; border: 1px solid #2b414d; border-radius: 12px; background: #101e28; }
+    #zipLeafletMap { width: 100%; height: 470px; background: #101e28; }
+    .leaflet-container { font: inherit; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: var(--text); background: #142630; }
+    .leaflet-popup-content { min-width: 210px; max-width: 280px; margin: 13px 16px; font-size: 12px; line-height: 1.5; }
+    .leaflet-popup-content p { margin: 5px 0; }
+    .leaflet-popup-close-button { color: var(--muted) !important; }
+    .leaflet-tooltip { border: 1px solid #52716f; color: var(--text); background: #142630; box-shadow: 0 2px 8px #0008; }
+    .leaflet-tooltip-top:before { border-top-color: #52716f; }
+    .leaflet-interactive:focus { outline: 2px solid #fff; outline-offset: 2px; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+    .zip-popup-total { margin: 12px 0 4px; color: var(--mint); font-size: 23px; font-weight: 750; }
+    .zip-popup-meta { color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .zip-popup-section { margin-top: 13px; }
+    .zip-popup-section h5 { margin: 0 0 7px; color: #dfe9e9; font-size: 11px; }
+    .zip-popup-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; color: #b9cbd0; font-size: 11px; }
+    .zip-popup-list li { display: flex; justify-content: space-between; gap: 8px; }
+    .zip-map-side h4 { margin: 2px 0 12px; font-size: 13px; }
+    .zip-rank-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .zip-rank-item { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 8px; color: #cbd8dc; font-size: 11px; }
+    .zip-rank-bar { height: 7px; overflow: hidden; border-radius: 99px; background: #253945; }
+    .zip-rank-bar span { display: block; height: 100%; border-radius: inherit; background: var(--mint); }
+    .zip-map-legend { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .zip-map-gradient { width: 150px; height: 9px; border-radius: 99px; background: linear-gradient(90deg, #24333d, #1c4b50, #69e0bd); }
+    .browse-tools { display: grid; grid-template-columns: minmax(220px, 1fr) 200px auto; gap: 10px; margin-bottom: 12px; }
+    .browse-tools input, .browse-tools select, .browse-tools button, .report-form input, .report-form select, .report-form textarea, .report-form button {
+      min-height: 40px; padding: 9px 11px; border: 1px solid #3a5360; border-radius: 8px; color: var(--text); background: #101e28; font: inherit;
+    }
+    .browse-tools button, .report-form button { color: var(--text); background: #1b303c; cursor: pointer; }
+    .pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .pagination button { padding: 8px 12px; border: 1px solid #3d5967; border-radius: 8px; color: var(--text); background: #1b303c; cursor: pointer; }
+    .pagination button:disabled { opacity: .45; cursor: default; }
+    .report-form { display: grid; max-width: 760px; gap: 12px; }
+    .report-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    .report-form textarea { min-height: 120px; resize: vertical; }
+    .demo-note { margin-bottom: 14px; color: var(--amber); font-size: 12px; line-height: 1.5; }
+    .form-message { display: none; padding: 11px 13px; border-radius: 8px; font-size: 12px; }
+    .form-message.success { display: block; border: 1px solid #386254; color: var(--mint); background: #173730; }
+    .form-message.failure { display: block; border: 1px solid #834c4c; color: #ffd4d0; background: #3b2429; }
+    .demo-report { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #172632; }
+    .demo-report small { color: var(--muted); }
+    canvas { display: block; width: 100%; height: 100%; }
+    .chart-empty { display: grid; height: 220px; place-items: center; color: var(--muted); font-size: 13px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { padding: 10px 11px; color: #8fa4ad; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    td { padding: 12px 11px; border-top: 1px solid #293c48; color: #e1eaec; font-size: 12px; }
+    tbody tr:hover { background: #223641; }
+    .rank { width: 35px; color: #94aab2; }
+    .category { font-weight: 650; }
+    .location { color: #b8c8cd; }
+    .count { font-variant-numeric: tabular-nums; }
+    .pill {
+      display: inline-block;
+      padding: 4px 7px;
+      border: 1px solid #386254;
+      border-radius: 999px;
+      color: var(--mint);
+      background: #173730;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .detail-link {
+      padding: 6px 9px;
+      border: 1px solid #3d5967;
+      border-radius: 8px;
+      color: var(--blue);
+      background: #1b2e39;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .detail-link:hover { border-color: var(--blue); }
+    footer { padding: 15px 2px 0; color: #82969e; font-size: 11px; line-height: 1.6; }
+    .drawer-backdrop {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      display: none;
+      justify-content: end;
+      background: #06111bd9;
+    }
+    .drawer-backdrop.open { display: flex; }
+    .drawer {
+      width: min(520px, 100%);
+      height: 100%;
+      overflow: auto;
+      padding: 24px;
+      border-left: 1px solid var(--line);
+      background: #13232e;
+      box-shadow: -20px 0 70px #0006;
+    }
+    .drawer-top { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .drawer h2 { margin: 0; font-size: 21px; }
+    .close {
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: var(--panel-soft);
+      cursor: pointer;
+    }
+    .evidence-card { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+    .evidence-meta { color: var(--muted); font-size: 11px; line-height: 1.7; }
+    .evidence-issue { margin: 8px 0; font-size: 13px; font-weight: 650; }
+    .status { color: var(--mint); }
+    .loading { color: var(--muted); font-size: 13px; }
+    @media (max-width: 850px) {
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .insight-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid { grid-template-columns: 1fr; }
+      .zip-map-layout { grid-template-columns: 1fr; }
+      .zip-map-side { padding-top: 6px; }
+      .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
+      .sidebar { padding-top: 12px; }
+      .tab-nav { position: static; display: flex; overflow-x: auto; padding-bottom: 4px; }
+      .tab-button { width: auto; flex: 0 0 auto; }
+      .sidebar-label { display: none; }
+      .main-content { padding-top: 18px; }
+    }
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 24px, 1440px); }
+      header { align-items: start; }
+      .actions { align-items: end; flex-direction: column-reverse; gap: 7px; }
+      .run-badge { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+      .intro { align-items: start; flex-direction: column; gap: 9px; }
+      .kpi { min-height: 102px; padding: 14px; }
+      .kpi-value { font-size: 24px; }
+      .insight-kpi { min-height: 82px; padding: 12px; }
+      .insight-kpi .kpi-value { font-size: 20px; }
+      .panel { padding: 14px; }
+      .chart-wrap { height: 230px; }
+      .insight-chart { height: 260px; }
+      .region-chart-layout { grid-template-columns: minmax(0, 1fr) minmax(125px, .9fr); gap: 8px; }
+      .region-chart-wrap { height: 210px; }
+      .filters { grid-template-columns: 1fr; }
+      .browse-tools { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="mark" aria-hidden="true">C</div>
+        <div>
+          <h1>CivicPulse</h1>
+          <div class="subtitle">Public complaint pattern intelligence</div>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="run-badge" id="runId">run_20261013</span>
+        <button class="refresh" id="refreshButton" type="button">Refresh data</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Dashboard sections">
+        <div class="sidebar-label">Workspace</div>
+        <nav class="tab-nav" role="tablist" aria-label="Dashboard sections">
+          <button class="tab-button" id="overviewTab" type="button" role="tab" aria-selected="true" aria-controls="overviewPanel" data-tab="overview">
+            <span class="tab-icon" aria-hidden="true">◫</span> Home
+          </button>
+          <button class="tab-button" id="trendsTab" type="button" role="tab" aria-selected="false" aria-controls="trendsPanel" data-tab="trends">
+            <span class="tab-icon" aria-hidden="true">⌁</span> Big Data Insights
+          </button>
+          <button class="tab-button" id="geographyTab" type="button" role="tab" aria-selected="false" aria-controls="geographyPanel" data-tab="geography">
+            <span class="tab-icon" aria-hidden="true">◎</span> Hotspot Explorer
+          </button>
+          <button class="tab-button" id="patternsTab" type="button" role="tab" aria-selected="false" aria-controls="patternsPanel" data-tab="patterns">
+            <span class="tab-icon" aria-hidden="true">▤</span> Recurring patterns
+          </button>
+          <button class="tab-button" id="browseTab" type="button" role="tab" aria-selected="false" aria-controls="browsePanel" data-tab="browse">
+            <span class="tab-icon" aria-hidden="true">⌕</span> Browse complaints
+          </button>
+          <button class="tab-button" id="reportTab" type="button" role="tab" aria-selected="false" aria-controls="reportPanel" data-tab="report">
+            <span class="tab-icon" aria-hidden="true">＋</span> Report an issue
+          </button>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+      <section class="intro">
+        <div class="updated" id="updatedAt">Connecting to Hive and MongoDB…</div>
+      </section>
+
+      <div class="notice">
+        <strong>Dataset context:</strong> this dashboard uses 800,000 records from staged historical
+        NYC 311 extracts, not the complete or a representative NYC 311 population. A recurring pattern represents
+        repeated reports, not a confirmed infrastructure fault.
+      </div>
+      <div class="error" id="errorBox" role="alert"></div>
+
+      <form class="filters" id="filtersForm">
+        <label class="filter-field">From date
+          <input id="fromDate" type="date" value="2023-01-01">
+        </label>
+        <label class="filter-field">To date
+          <input id="toDate" type="date" value="2026-10-02">
+        </label>
+        <label class="filter-field">Borough
+          <select id="boroughFilter"><option value="">All boroughs</option></select>
+        </label>
+        <label class="filter-field">Complaint type
+          <select id="categoryFilter"><option value="">All complaint types</option></select>
+        </label>
+        <div class="filter-actions">
+          <button type="submit">Apply</button>
+          <button type="button" id="resetFilters">Reset</button>
+        </div>
+      </form>
+      <div class="coverage" id="coverageText">Dataset coverage: staged historical NYC 311 extracts.</div>
+
+      <section class="tab-panel" id="overviewPanel" role="tabpanel" aria-labelledby="overviewTab" data-panel="overview">
+        <div class="tab-title">
+          <div class="eyebrow">Overview</div>
+          <h2>Complaint snapshot</h2>
+          <p>NYC 311 public records summarized from the selected dates and filters.</p>
+        </div>
+      <section class="kpis" aria-label="Dataset overview">
+        <article class="kpi">
+          <div class="kpi-label">Total civic complaints</div>
+          <div class="kpi-value" id="recordCount">—</div>
+          <div class="kpi-foot">Whole report count · Hive · Pig-cleaned HDFS data</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Most reported issue</div>
+          <div class="kpi-value" id="topIssue">—</div>
+          <div class="kpi-foot" id="topIssueCount">Hive category leader</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Top complaint borough</div>
+          <div class="kpi-value" id="topBorough">—</div>
+          <div class="kpi-foot" id="topBoroughCount">Borough-level, not ward-level</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Issue categories</div>
+          <div class="kpi-value" id="categoryCount">—</div>
+          <div class="kpi-foot">Available for selected filters</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Persistent area / issue patterns</div>
+          <div class="kpi-value" id="patternCount">—</div>
+          <div class="kpi-foot">Hive matches for these filters</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label">Complaint evidence records</div>
+          <div class="kpi-value" id="evidenceCount">—</div>
+          <div class="kpi-foot">MongoDB examples for listed patterns and filters</div>
+        </article>
+      </section>
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head"><div><h3>Most reported issue categories</h3><div class="panel-desc">Top complaint categories · whole report counts · Hive</div></div></div>
+          <div class="chart-wrap"><canvas id="categoryChart" aria-label="Complaint counts by category"></canvas></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><h3>Overall complaints by region</h3><div class="panel-desc">Filtered borough totals · whole report counts · Hive</div></div></div>
+          <div class="region-total"><strong id="regionTotal">—</strong>overall filtered reports · Hive</div>
+          <div class="region-chart-layout">
+            <div class="chart-wrap region-chart-wrap"><canvas id="regionPieChart" aria-label="Overall complaint reports by borough or region"></canvas></div>
+            <ul class="region-legend" id="regionPieLegend" aria-label="Complaint report counts and shares by region"></ul>
+          </div>
+        </article>
+      </section>
+      </section>
+
+      <section class="tab-panel" id="trendsPanel" role="tabpanel" aria-labelledby="trendsTab" data-panel="trends" hidden>
+      <div class="tab-title">
+        <div class="eyebrow">Trends</div>
+        <h2>What is being reported, and when?</h2>
+        <p>Hive aggregates update with the selected date range, borough, and complaint type.</p>
+      </div>
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Service request status</h3>
+              <div class="panel-desc">Non-empty source status counts · whole report counts · Hive</div>
+            </div>
+          </div>
+          <div class="chart-wrap insight-chart"><canvas id="statusChart" aria-label="Complaint counts by service status"></canvas></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><h3>Most persistent area / issue patterns</h3><div class="panel-desc">Top stored MongoDB patterns (up to 100) · months observed in filtered Hive results</div></div></div>
+          <div class="chart-wrap insight-chart"><canvas id="insightPersistenceChart" aria-label="Recurring patterns ranked by months observed"></canvas></div>
+        </article>
+      </section>
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <div><h3>Category concentration (Pareto)</h3><div class="panel-desc">Bars = report counts · connected line = cumulative share of all filtered reports · Hive</div></div>
+          </div>
+          <div class="chart-wrap insight-chart"><canvas id="insightParetoChart" aria-label="Top complaint categories and cumulative share"></canvas></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><h3>Borough-wise comparison</h3><div class="panel-desc">Filtered report counts · whole counts · Hive</div></div></div>
+          <div class="chart-wrap insight-chart"><canvas id="insightBoroughChart" aria-label="Complaint counts by borough"></canvas></div>
+        </article>
+      </section>
+      <section class="insight-kpis" aria-label="Filtered data summary">
+        <article class="kpi insight-kpi">
+          <div class="kpi-label">Total reports</div>
+          <div class="kpi-value" id="insightTotal">—</div>
+          <div class="kpi-foot">Filtered dataset · whole report count · Hive</div>
+        </article>
+        <article class="kpi insight-kpi">
+          <div class="kpi-label">Distinct categories</div>
+          <div class="kpi-value" id="insightCategories">—</div>
+          <div class="kpi-foot">Filtered dataset · Hive</div>
+        </article>
+        <article class="kpi insight-kpi">
+          <div class="kpi-label">Percentage closed</div>
+          <div class="kpi-value" id="insightClosed">—</div>
+          <div class="kpi-foot">CLOSED / all filtered reports · Hive</div>
+        </article>
+        <article class="kpi insight-kpi">
+          <div class="kpi-label">Months covered</div>
+          <div class="kpi-value" id="insightMonths">—</div>
+          <div class="kpi-foot">Months with reports · Hive</div>
+        </article>
+        <article class="kpi insight-kpi">
+          <div class="kpi-label">Top 5 category share</div>
+          <div class="kpi-value" id="insightTopFiveShare">—</div>
+          <div class="kpi-foot">Of all filtered reports · Hive</div>
+        </article>
+      </section>
+      </section>
+
+      <section class="tab-panel" id="geographyPanel" role="tabpanel" aria-labelledby="geographyTab" data-panel="geography" hidden>
+      <div class="tab-title">
+        <div class="eyebrow">Hotspot Explorer</div>
+        <h2>Where reports are concentrated</h2>
+        <p>Explore filtered complaint totals by NYC ZIP Code Tabulation Area (ZCTA), using the source ZIP field.</p>
+      </div>
+      <section class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <div>
+            <h3>Complaint counts by ZIP region</h3>
+            <div class="panel-desc">Values are lakh report counts grouped in Hive from incident ZIP; boundaries are 2020 Census ZCTAs, not ward or complaint-point locations.</div>
+          </div>
+        </div>
+        <p class="panel-desc" id="zipMapSummary">Open Hotspot Explorer to load ZIP counts from Hive.</p>
+        <div class="zip-map-layout">
+          <div class="zip-map-shell">
+            <div id="zipLeafletMap" role="application"
+              aria-label="Interactive NYC complaint map by ZIP Code Tabulation Area"></div>
+          </div>
+          <aside class="zip-map-side" aria-label="Highest complaint ZIP regions">
+            <h4>Highest complaint ZIP areas</h4>
+            <ol class="zip-rank-list" id="zipRankList">
+              <li class="loading">ZIP counts will appear here.</li>
+            </ol>
+            <div class="zip-map-legend"><span>Fewer</span><span class="zip-map-gradient" aria-hidden="true"></span><span>More reports</span></div>
+          </aside>
+        </div>
+      </section>
+      <section class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <div>
+            <h3>Queens complaints by status</h3>
+            <div class="panel-desc">Completed (source status CLOSED) and in-progress report counts · Hive. Date and issue filters apply; borough is fixed to Queens.</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="queensStatusChart" aria-label="Queens complaint counts: completed and in progress"></canvas></div>
+      </section>
+      </section>
+
+      <section class="tab-panel" id="patternsPanel" role="tabpanel" aria-labelledby="patternsTab" data-panel="patterns" hidden>
+      <div class="tab-title">
+        <div class="eyebrow">Recurring patterns</div>
+        <h2>Issues reported across multiple months</h2>
+        <p>Each row groups a borough/ZIP and issue category observed in at least two months.</p>
+      </div>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h3>Persistent complaint patterns</h3>
+            <div class="panel-desc">Borough + ZIP and issue groups recurring in at least two months.
+              Table shows retained MongoDB patterns with examples; the KPI counts all Hive matches.</div>
+          </div>
+          <span class="pill">Reports ≠ confirmed faults</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="rank">#</th>
+                <th>Area</th>
+                <th>Issue type</th>
+                <th>Months</th>
+                <th>Periods</th>
+                <th>Reports</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody id="patternsBody">
+              <tr><td colspan="7" class="loading">Loading pattern results…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      </section>
+
+      <section class="tab-panel" id="browsePanel" role="tabpanel" aria-labelledby="browseTab" data-panel="browse" hidden>
+        <div class="tab-title"><div class="eyebrow">Browse Complaints</div><h2>Search public 311 records</h2><p>Hive-backed records using available source fields; 25 rows per page.</p></div>
+        <section class="panel">
+          <div class="browse-tools">
+            <input id="complaintSearch" type="search" placeholder="Search ID, issue, borough, ZIP or descriptor" aria-label="Search complaints">
+            <select id="statusFilter" aria-label="Filter by service status"><option value="">All statuses</option></select>
+            <button id="searchComplaints" type="button">Search</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Date</th><th>Category</th><th>Borough / ZIP</th><th>Description</th><th>Status</th></tr></thead>
+              <tbody id="complaintsBody"><tr><td colspan="5" class="loading">Select Search to load records from Hive.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination"><span id="complaintsPageInfo">No records loaded</span><span><button id="previousPage" type="button" disabled>Previous</button> <button id="nextPage" type="button" disabled>Next</button></span></div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="reportPanel" role="tabpanel" aria-labelledby="reportTab" data-panel="report" hidden>
+        <div class="tab-title"><div class="eyebrow">Demo Submission</div><h2>Report a civic issue</h2><p>Prototype submissions are kept separate from the public NYC 311 records.</p></div>
+        <section class="panel">
+          <div class="demo-note">For demonstration only: this does not contact NYC 311 or create a municipal request. Do not enter personal or sensitive information. Image upload is not enabled.</div>
+          <form class="report-form" id="reportForm">
+            <label>Issue category<select id="reportCategory" required><option value="">Choose category</option></select></label>
+            <label>Borough<select id="reportBorough" required><option value="">Choose borough</option></select></label>
+            <label>Date<input id="reportDate" type="date" required></label>
+            <label>Description<textarea id="reportDescription" minlength="10" maxlength="1000" required placeholder="Describe the civic issue (10–1000 characters)"></textarea></label>
+            <button type="submit">Save demo report</button>
+            <div class="form-message" id="reportMessage" role="status"></div>
+          </form>
+        </section>
+        <section class="panel" style="margin-top:14px">
+          <div class="panel-head"><div><h3>Recent demo submissions</h3><div class="panel-desc">MongoDB demo_submissions collection · never mixed into public-data analytics</div></div></div>
+          <div id="demoReportsList"><div class="loading">Open Report tab to load demo submissions.</div></div>
+        </section>
+      </section>
+      <footer>
+        Sources: NYC Open Data 311 Service Requests · Analytical tables read from Hive external
+        tables over HDFS · recurring patterns and selected examples retrieved from MongoDB.
+        Location aggregates use borough and ZIP fields. The Leaflet map colors 2020 Census ZIP Code Tabulation Areas by Hive counts over OpenStreetMap tiles; it does not geocode complaint points or show wards.
+      </footer>
+      </main>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop">
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-top">
+        <div>
+          <h2 id="drawerTitle">Pattern evidence</h2>
+          <div class="panel-desc" id="drawerSubtitle"></div>
+        </div>
+        <button class="close" id="closeDrawer" type="button" aria-label="Close details">Close</button>
+      </div>
+      <div id="evidenceList"><p class="loading">Loading evidence…</p></div>
+    </aside>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    "use strict";
+
+    const numberFormat = new Intl.NumberFormat("en-US");
+    const palette = ["#69e0bd", "#8bb8ff", "#ffc47a", "#c1a0ff", "#ff938a", "#65c8d0"];
+    let dashboardData = null;
+    let initializedFilters = false;
+    let complaintsPage = 1;
+    let complaintSearchLoaded = false;
+    let zipBoundaryPromise = null;
+    let zipMapLoadVersion = 0;
+    let zipMapQuery = null;
+    let zipDetailLoadVersion = 0;
+    let zipMapFeatures = null;
+    let zipMapRows = null;
+    let zipLeafletMap = null;
+    let zipBoundaryLayer = null;
+    let activeZipLayer = null;
+    let zipMapHasFitted = false;
+
+    function selectTab(name, updateHash = true) {
+      document.querySelectorAll("[data-tab]").forEach(button => {
+        const active = button.dataset.tab === name;
+        button.setAttribute("aria-selected", String(active));
+        button.tabIndex = active ? 0 : -1;
+      });
+      document.querySelectorAll("[data-panel]").forEach(panel => {
+        panel.hidden = panel.dataset.panel !== name;
+      });
+      if (dashboardData && name === "overview") {
+        drawBars(document.getElementById("categoryChart"), dashboardData.categories.slice(0, 5));
+        drawRegionPie(dashboardData);
+      } else if (dashboardData && name === "trends") {
+        drawInsightCharts(dashboardData);
+      } else if (name === "geography") {
+        if (dashboardData) drawBars(document.getElementById("queensStatusChart"), dashboardData.queensStatuses);
+        loadZipHotspots();
+        window.setTimeout(() => {
+          if (zipLeafletMap) zipLeafletMap.invalidateSize();
+        }, 100);
+      }
+      if (updateHash && window.location.hash !== "#" + name) {
+        history.replaceState(null, "", "#" + name);
+      }
+      if (name === "browse" && !complaintSearchLoaded) loadComplaints(1);
+      if (name === "report") loadDemoReports();
+    }
+
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      })[character]);
+    }
+
+    function chartContext(canvas) {
+      const bounds = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
+      canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
+      const context = canvas.getContext("2d");
+      context.scale(ratio, ratio);
+      return { context, width: bounds.width, height: bounds.height };
+    }
+
+    function drawBars(canvas, rows, valueUnit = "reports") {
+      const { context: ctx, width, height } = chartContext(canvas);
+      ctx.clearRect(0, 0, width, height);
+      canvas.title = rows.length
+        ? rows.map(row => `${row.label}: ${numberFormat.format(row.value)} ${row.valueUnit || valueUnit}`
+          + (row.detail ? ` · ${row.detail}` : "")).join("\n")
+        : "No matching reports";
+      if (!rows.length) {
+        drawChartEmpty(ctx, width, height);
+        return;
+      }
+      const left = Math.min(165, width * .43);
+      const right = Math.max(left + 20, width - 44);
+      const top = 12;
+      const bottom = height - 32;
+      const rowHeight = Math.max(1, (bottom - top) / rows.length);
+      const max = Math.max(...rows.map(row => row.value), 1);
+      ctx.font = "11px system-ui";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      for (let tick = 0; tick <= 4; tick++) {
+        const x = left + (right - left) * tick / 4;
+        ctx.strokeStyle = "#29404b";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, top - 3);
+        ctx.lineTo(x, bottom);
+        ctx.stroke();
+        ctx.fillStyle = "#8da2aa";
+        ctx.fillText(numberFormat.format(Math.round(max * tick / 4)), x, height - 12);
+      }
+      rows.forEach((row, index) => {
+        const y = top + index * rowHeight + rowHeight / 2;
+        ctx.fillStyle = "#adbec4";
+        ctx.textAlign = "right";
+        const label = row.label.length > 23 ? row.label.slice(0, 21) + "…" : row.label;
+        ctx.fillText(label, left - 10, y);
+        const barWidth = Math.max(2, (right - left) * row.value / max);
+        ctx.fillStyle = palette[index % palette.length];
+        ctx.beginPath();
+        ctx.roundRect(left, y - Math.min(6, rowHeight * .28), barWidth,
+          Math.min(12, rowHeight * .56), 5);
+        ctx.fill();
+        ctx.fillStyle = "#d7e2e5";
+        ctx.textAlign = "left";
+        const valueLabel = numberFormat.format(row.value);
+        const valueX = left + barWidth + 7;
+        if (valueX + ctx.measureText(valueLabel).width > width - 2) {
+          ctx.textAlign = "right";
+          ctx.fillText(valueLabel, width - 3, y);
+        } else {
+          ctx.fillText(valueLabel, valueX, y);
+        }
+      });
+    }
+
+    function drawPareto(canvas, categories, totalReports) {
+      const { context: ctx, width, height } = chartContext(canvas);
+      ctx.clearRect(0, 0, width, height);
+      const rows = categories
+        .map(row => ({ label: String(row.label), value: Number(row.value) }))
+        .filter(row => Number.isFinite(row.value) && row.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+      const total = Number(totalReports);
+      canvas.title = rows.length && Number.isFinite(total) && total > 0
+        ? rows.map((row, index) => {
+          const cumulative = rows.slice(0, index + 1)
+            .reduce((sum, item) => sum + item.value, 0);
+          return `${row.label}: ${numberFormat.format(row.value)} reports · `
+            + `${(cumulative / total * 100).toFixed(1)}% cumulative share`;
+        }).join("\n")
+        : "No matching categories";
+      if (!rows.length || !Number.isFinite(total) || total <= 0) {
+        drawChartEmpty(ctx, width, height);
+        return;
+      }
+      const left = 48;
+      const right = width - 48;
+      const top = 20;
+      const bottom = height - 76;
+      const plotWidth = Math.max(1, right - left);
+      const plotHeight = Math.max(1, bottom - top);
+      const maxCount = Math.max(...rows.map(row => row.value), 1);
+      const slotWidth = plotWidth / rows.length;
+      ctx.font = "10px system-ui";
+      ctx.textBaseline = "middle";
+      for (let tick = 0; tick <= 4; tick++) {
+        const fraction = tick / 4;
+        const y = bottom - plotHeight * fraction;
+        ctx.strokeStyle = "#29404b";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+        ctx.stroke();
+        ctx.fillStyle = "#8da2aa";
+        ctx.textAlign = "right";
+        ctx.fillText(numberFormat.format(Math.round(maxCount * fraction)), left - 7, y);
+        ctx.textAlign = "left";
+        ctx.fillText(`${Math.round(fraction * 100)}%`, right + 7, y);
+      }
+      let cumulative = 0;
+      const points = rows.map((row, index) => {
+        cumulative += row.value;
+        return {
+          x: left + slotWidth * (index + .5),
+          y: bottom - plotHeight * cumulative / total
+        };
+      });
+      rows.forEach((row, index) => {
+        const barHeight = plotHeight * row.value / maxCount;
+        const barWidth = Math.max(2, slotWidth * .56);
+        ctx.fillStyle = palette[index % palette.length];
+        ctx.beginPath();
+        ctx.roundRect(points[index].x - barWidth / 2, bottom - barHeight,
+          barWidth, barHeight, 4);
+        ctx.fill();
+      });
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
+      ctx.strokeStyle = "#f4c36a";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      points.forEach((point, index) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffe0a0";
+        ctx.fill();
+        ctx.save();
+        ctx.translate(point.x, bottom + 10);
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = "#8da2aa";
+        ctx.textAlign = "right";
+        const labelLimit = Math.max(6, Math.min(14, Math.floor(slotWidth / 5)));
+        const label = rows[index].label.length > labelLimit
+          ? rows[index].label.slice(0, labelLimit - 1) + "…" : rows[index].label;
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
+      });
+    }
+
+    function drawChartEmpty(ctx, width, height) {
+      if (width < 1 || height < 1) return;
+      ctx.fillStyle = "#91a7ad";
+      ctx.font = "13px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("No reports match the selected filters", width / 2, height / 2);
+    }
+
+    function drawRegionPie(data) {
+      const rows = Array.isArray(data.boroughs) ? data.boroughs : [];
+      const totalReports = Number(data.sourceRecordCount) || 0;
+      const validRows = rows.filter(row => Number(row.value) > 0);
+      const regionTotal = validRows.reduce((sum, row) => sum + Number(row.value), 0);
+      document.getElementById("regionTotal").textContent = numberFormat.format(totalReports);
+      const canvas = document.getElementById("regionPieChart");
+      const { context: ctx, width, height } = chartContext(canvas);
+      ctx.clearRect(0, 0, width, height);
+      const legend = document.getElementById("regionPieLegend");
+      legend.innerHTML = "";
+      canvas.title = validRows.length
+        ? `Overall filtered reports: ${numberFormat.format(totalReports)}\n`
+          + validRows.map(row => `${row.label}: ${numberFormat.format(row.value)} reports`
+            + ` (${(Number(row.value) / regionTotal * 100).toFixed(1)}% of regional totals)`).join("\n")
+        : "No regional reports match the selected filters";
+      if (regionTotal <= 0 || width < 1 || height < 1) {
+        drawChartEmpty(ctx, width, height);
+        legend.innerHTML = '<li class="loading">No regional reports match these filters.</li>';
+        return;
+      }
+      const radius = Math.max(1, Math.min(width, height) * .43);
+      const centerX = width / 2;
+      const centerY = height / 2;
+      let startAngle = -Math.PI / 2;
+      validRows.forEach((row, index) => {
+        const value = Number(row.value);
+        const endAngle = startAngle + value / regionTotal * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = palette[index % palette.length];
+        ctx.fill();
+        ctx.strokeStyle = "#15232e";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        const share = value / regionTotal * 100;
+        const item = document.createElement("li");
+        const swatch = document.createElement("span");
+        swatch.className = "region-swatch";
+        swatch.style.backgroundColor = palette[index % palette.length];
+        swatch.setAttribute("aria-hidden", "true");
+        const label = document.createElement("span");
+        label.textContent = row.label;
+        const count = document.createElement("span");
+        count.className = "region-share";
+        count.textContent = `${numberFormat.format(value)} · ${share.toFixed(1)}%`;
+        item.title = `${row.label}: ${numberFormat.format(value)} reports (${share.toFixed(1)}%)`;
+        item.append(swatch, label, count);
+        legend.append(item);
+        startAngle = endAngle;
+      });
+    }
+
+    function drawInsightCharts(data) {
+      const categories = Array.isArray(data.categories) ? data.categories : [];
+      const monthly = Array.isArray(data.monthly) ? data.monthly : [];
+      const boroughs = Array.isArray(data.boroughs) ? data.boroughs : [];
+      const statuses = Array.isArray(data.statuses) ? data.statuses : [];
+      const patterns = Array.isArray(data.patterns) ? data.patterns : [];
+      drawBars(document.getElementById("statusChart"), statuses);
+      const persistentPatterns = patterns.map(pattern => {
+        const idParts = String(pattern._id || "").split("::");
+        const reports = Number(pattern.totalComplaints);
+        return {
+          label: idParts.slice(1).join(" · ") || "Recurring pattern",
+          value: Number(pattern.monthsObserved),
+          valueUnit: "months",
+          reports: Number.isFinite(reports) ? reports : 0,
+          detail: `${numberFormat.format(Number.isFinite(reports) ? reports : 0)} reports`
+        };
+      }).filter(row => Number.isFinite(row.value) && row.value > 0)
+        .sort((a, b) => b.value - a.value || b.reports - a.reports)
+        .slice(0, 10);
+      drawBars(document.getElementById("insightPersistenceChart"), persistentPatterns);
+      drawPareto(document.getElementById("insightParetoChart"), categories, data.sourceRecordCount);
+      drawBars(document.getElementById("insightBoroughChart"), boroughs);
+
+      const total = Number(data.sourceRecordCount) || 0;
+      const closed = statuses.find(row => row.label.trim().toUpperCase() === "CLOSED");
+      const closedPercent = total > 0 && closed
+        ? (Number(closed.value) / total) * 100
+        : null;
+      document.getElementById("insightTotal").textContent = numberFormat.format(total);
+      document.getElementById("insightCategories").textContent =
+        numberFormat.format(Number(data.categoryCount) || 0);
+      document.getElementById("insightClosed").textContent = closedPercent === null
+        ? "—" : `${closedPercent.toFixed(1)}%`;
+      document.getElementById("insightMonths").textContent = numberFormat.format(monthly.length);
+      const totalReports = Number(data.sourceRecordCount) || 0;
+      const topFive = categories.slice(0, 5).reduce((sum, row) => {
+        const value = Number(row.value);
+        return sum + (Number.isFinite(value) && value > 0 ? value : 0);
+      }, 0);
+      document.getElementById("insightTopFiveShare").textContent =
+        totalReports > 0 ? `${(topFive / totalReports * 100).toFixed(1)}%` : "—";
+    }
+
+    function loadZipBoundaries() {
+      if (!zipBoundaryPromise) {
+        zipBoundaryPromise = fetch("/nyc_zctas_2020.geojson", { cache: "force-cache" })
+          .then(async response => {
+            if (!response.ok) throw new Error("ZIP boundary file could not be loaded.");
+            const data = await response.json();
+            if (!data || data.type !== "FeatureCollection" || !Array.isArray(data.features)) {
+              throw new Error("ZIP boundary file has an invalid GeoJSON structure.");
+            }
+            return data.features;
+          })
+          .catch(error => {
+            zipBoundaryPromise = null;
+            throw error;
+          });
+      }
+      return zipBoundaryPromise;
+    }
+
+    function ensureLeafletMap() {
+      if (!window.L) {
+        throw new Error("Leaflet did not load. Check your internet connection and reload the dashboard.");
+      }
+      if (zipLeafletMap) return zipLeafletMap;
+      zipLeafletMap = L.map("zipLeafletMap", {
+        minZoom: 9,
+        maxZoom: 19,
+        scrollWheelZoom: false
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(zipLeafletMap);
+      return zipLeafletMap;
+    }
+
+    function renderZipMap(features, rows) {
+      const map = ensureLeafletMap();
+      const counts = new Map(rows.map(row => [String(row.label), Number(row.value)]));
+      const maxCount = Math.max(...rows.map(row => Number(row.value)), 1);
+      const mappedZips = new Set();
+      closeZipDetails();
+      if (zipBoundaryLayer) zipBoundaryLayer.remove();
+      zipBoundaryLayer = L.geoJSON(features, {
+        filter: feature => /^[0-9]{5}$/.test(
+          String(feature.properties && feature.properties.ZCTA5 || "")),
+        style: feature => {
+          const zip = String(feature.properties.ZCTA5);
+          const value = counts.get(zip) || 0;
+          if (value > 0) mappedZips.add(zip);
+          const intensity = Math.sqrt(value / maxCount);
+          const red = Math.round(28 + intensity * 77);
+          const green = Math.round(75 + intensity * 149);
+          const blue = Math.round(80 + intensity * 108);
+          return {
+            color: "#8ba5a8",
+            weight: 0.7,
+            fillColor: value > 0
+              ? `rgb(${red}, ${green}, ${blue})`
+              : "#24333d",
+            fillOpacity: 0.78
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const zip = String(feature.properties.ZCTA5);
+          const value = counts.get(zip) || 0;
+          layer.bindTooltip(
+            `ZIP ${zip}: ${numberFormat.format(value)} complaint reports`,
+            { sticky: true });
+          layer.on({
+            mouseover: () => layer.setStyle({ color: "#fff", weight: 2 }),
+            mouseout: () => zipBoundaryLayer.resetStyle(layer),
+            click: () => openZipDetails(zip, layer),
+            add: () => {
+              const path = layer.getElement();
+              if (!path) return;
+              path.setAttribute("tabindex", "0");
+              path.setAttribute("role", "button");
+              path.setAttribute("aria-label",
+                `ZIP ${zip}: ${numberFormat.format(value)} complaint reports. Press Enter for details.`);
+              path.addEventListener("keydown", event => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                openZipDetails(zip, layer);
+              });
+            }
+          });
+        }
+      }).addTo(map);
+      const bounds = zipBoundaryLayer.getBounds();
+      if (bounds.isValid() && !zipMapHasFitted) {
+        map.fitBounds(bounds, { padding: [18, 18] });
+        zipMapHasFitted = true;
+      }
+      const ranked = rows.filter(row => mappedZips.has(String(row.label))).slice(0, 10);
+      const list = document.getElementById("zipRankList");
+      list.innerHTML = ranked.length ? ranked.map(row => {
+        const width = Math.max(3, Number(row.value) / maxCount * 100);
+        return `<li class="zip-rank-item"><strong>${esc(row.label)}</strong><span class="zip-rank-bar"><span style="width:${width}%"></span></span><span>${numberFormat.format(row.value)}</span></li>`;
+      }).join("") : '<li class="loading">No ZIP-coded complaints match these filters.</li>';
+      const mappedCount = rows.reduce((sum, row) =>
+        mappedZips.has(String(row.label)) ? sum + Number(row.value) : sum, 0);
+      document.getElementById("zipMapSummary").textContent =
+        `${numberFormat.format(mappedCount)} complaints with ZIP values mapped across ${numberFormat.format(mappedZips.size)} regions. `
+        + (dashboardData
+          ? `${numberFormat.format(Math.max(0, Number(dashboardData.sourceRecordCount) - mappedCount))} selected records have no matching mapped ZIP region. `
+          : "")
+        + `Zoom or pan the map, then select a ZIP region for its filtered complaint breakdown.`;
+    }
+
+    function renderPopupMetrics(title, rows) {
+      if (!rows.length) return "";
+      return `<div class="zip-popup-section"><h5>${esc(title)}</h5><ul class="zip-popup-list">${
+        rows.map(row => `<li><span>${esc(row.label)}</span><strong>${numberFormat.format(row.value)}</strong></li>`).join("")
+      }</ul></div>`;
+    }
+
+    async function openZipDetails(zip, layer) {
+      const version = ++zipDetailLoadVersion;
+      activeZipLayer = layer;
+      layer.bindPopup(
+        `<strong>ZIP ${esc(zip)} complaint details</strong><p>Loading complaint breakdown from Hive…</p>`,
+        { maxWidth: 320 }).openPopup();
+      const activeFilters = new URLSearchParams(zipMapQuery || selectedQuery());
+      const params = new URLSearchParams(activeFilters);
+      params.set("zip", zip);
+      try {
+        const response = await fetch("/api/zip-details?" + params.toString(), { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load ZIP complaint details.");
+        if (version !== zipDetailLoadVersion) return;
+        const boroughText = data.boroughs.length
+          ? data.boroughs.map(row => row.label).join(", ")
+          : "Borough not available";
+        const fromDate = activeFilters.get("from") || "All dates";
+        const toDate = activeFilters.get("to") || "All dates";
+        const content =
+          `<strong>ZIP ${esc(zip)} complaint details</strong>`
+          + `<div class="zip-popup-total">${numberFormat.format(data.total)} complaint reports</div>`
+          + `<div class="zip-popup-meta">${esc(boroughText)} · ${esc(fromDate)} to ${esc(toDate)} · filtered Hive results</div>`
+          + renderPopupMetrics("Most reported issue types", data.categories)
+          + renderPopupMetrics("Request status", data.statuses)
+          + '<div class="zip-popup-meta" style="margin-top:10px">ZIP-area totals, not individual complaint points.</div>'
+          + (data.total === 0 ? '<p class="zip-popup-meta">No complaints in this ZIP match the selected filters.</p>' : "");
+        if (version === zipDetailLoadVersion && activeZipLayer === layer) {
+          layer.setPopupContent(content);
+        }
+      } catch (error) {
+        if (version !== zipDetailLoadVersion) return;
+        layer.setPopupContent(
+          `<strong>ZIP ${esc(zip)} complaint details</strong><p>${esc(error.message)}</p>`);
+      }
+    }
+
+    function closeZipDetails() {
+      zipDetailLoadVersion++;
+      activeZipLayer = null;
+      if (zipLeafletMap) zipLeafletMap.closePopup();
+    }
+
+    async function loadZipHotspots() {
+      const query = selectedQuery();
+      if (query === zipMapQuery) {
+        if (zipMapFeatures && zipMapRows) renderZipMap(zipMapFeatures, zipMapRows);
+        return;
+      }
+      zipMapQuery = query;
+      closeZipDetails();
+      const version = ++zipMapLoadVersion;
+      const summary = document.getElementById("zipMapSummary");
+      const list = document.getElementById("zipRankList");
+      summary.textContent = "Loading ZIP counts from Hive and Census boundary regions…";
+      list.innerHTML = '<li class="loading">Loading ZIP totals…</li>';
+      try {
+        const [features, response] = await Promise.all([
+          loadZipBoundaries(),
+          fetch("/api/zip-hotspots" + (query ? "?" + query : ""), { cache: "no-store" })
+        ]);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "ZIP hotspot query failed.");
+        if (version !== zipMapLoadVersion) return;
+        if (!Array.isArray(data.zipHotspots)) throw new Error("Hive returned an invalid ZIP hotspot response.");
+        zipMapFeatures = features;
+        zipMapRows = data.zipHotspots;
+        renderZipMap(features, data.zipHotspots);
+      } catch (error) {
+        if (version !== zipMapLoadVersion) return;
+        zipMapQuery = null;
+        summary.textContent = "The ZIP hotspot map could not be loaded.";
+        list.innerHTML = `<li class="loading">${esc(error.message)}</li>`;
+      }
+    }
+
+    function renderPatterns(patterns) {
+      const body = document.getElementById("patternsBody");
+      if (!patterns.length) {
+        body.innerHTML = '<tr><td colspan="7" class="loading">No evidence-backed persistent patterns match these filters.</td></tr>';
+        return;
+      }
+      body.innerHTML = patterns.map((pattern, index) => `
+        <tr>
+          <td class="rank">${index + 1}</td>
+          <td class="location">${esc(pattern.borough)} · ${esc(pattern.incidentZip)}</td>
+          <td class="category">${esc(pattern.complaintType)}</td>
+          <td><span class="pill">${numberFormat.format(pattern.monthsObserved)} months</span></td>
+          <td class="location">${esc((pattern.periods || "").split(",").join(", "))}</td>
+          <td class="count">${numberFormat.format(pattern.totalComplaints)}</td>
+          <td><button class="detail-link" data-pattern-id="${esc(pattern._id)}">View details</button></td>
+        </tr>`).join("");
+      body.querySelectorAll("[data-pattern-id]").forEach(button => {
+        button.addEventListener("click", () => showEvidence(button.dataset.patternId));
+      });
+    }
+
+    function render(data) {
+      dashboardData = data;
+      document.getElementById("runId").textContent = data.runId;
+      document.getElementById("updatedAt").textContent =
+        "Updated " + new Date(data.generatedAt).toLocaleString();
+      document.getElementById("recordCount").textContent = numberFormat.format(data.sourceRecordCount);
+      document.getElementById("categoryCount").textContent = numberFormat.format(data.categoryCount);
+      document.getElementById("patternCount").textContent = numberFormat.format(data.patternCount);
+      document.getElementById("evidenceCount").textContent = numberFormat.format(data.evidenceCount);
+      const topIssue = data.categories[0];
+      const topBorough = data.boroughs[0];
+      document.getElementById("topIssue").textContent =
+        topIssue ? topIssue.label : "—";
+      document.getElementById("topIssueCount").textContent = topIssue
+        ? numberFormat.format(topIssue.value) + " complaints · Hive" : "No matching categories";
+      document.getElementById("topBorough").textContent =
+        topBorough ? topBorough.label : "—";
+      document.getElementById("topBoroughCount").textContent = topBorough
+        ? numberFormat.format(topBorough.value) + " complaints · Hive" : "No matching boroughs";
+      document.getElementById("coverageText").textContent =
+        "Dataset coverage: " + data.dateRange.min + " to " + data.dateRange.max
+        + " · Showing " + data.dateRange.from + " to " + data.dateRange.to
+        + " with the selected borough and complaint-type filters.";
+      if (!initializedFilters) {
+        document.getElementById("fromDate").value = data.dateRange.min;
+        document.getElementById("toDate").value = data.dateRange.max;
+        populateSelect("boroughFilter", data.boroughOptions, "All boroughs");
+        populateSelect("categoryFilter", data.categoryOptions, "All complaint types");
+        populateSelect("reportBorough", data.boroughOptions, "Choose borough");
+        populateSelect("reportCategory", data.categoryOptions, "Choose category");
+        initializedFilters = true;
+      }
+      populateSelect("statusFilter", data.statuses.map(row => row.label), "All statuses");
+      drawBars(document.getElementById("categoryChart"), data.categories.slice(0, 5));
+      drawRegionPie(data);
+      drawBars(document.getElementById("queensStatusChart"), data.queensStatuses);
+      drawInsightCharts(data);
+      renderPatterns(data.patterns);
+      const activeTab = document.querySelector('[data-tab][aria-selected="true"]');
+      if (activeTab && activeTab.dataset.tab === "geography") loadZipHotspots();
+      document.getElementById("errorBox").style.display = "none";
+    }
+
+    function populateSelect(id, values, defaultLabel) {
+      const select = document.getElementById(id);
+      const selected = select.value;
+      select.innerHTML = `<option value="">${esc(defaultLabel)}</option>`
+        + values.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join("");
+      if (values.includes(selected)) select.value = selected;
+    }
+
+    function selectedQuery() {
+      const query = new URLSearchParams();
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      const borough = document.getElementById("boroughFilter").value;
+      const complaintType = document.getElementById("categoryFilter").value;
+      if (dashboardData && !borough && !complaintType
+          && from === dashboardData.dateRange.min
+          && to === dashboardData.dateRange.max) {
+        return "";
+      }
+      if (from) query.set("from", from);
+      if (to) query.set("to", to);
+      if (borough) query.set("borough", borough);
+      if (complaintType) query.set("complaintType", complaintType);
+      return query.toString();
+    }
+
+    async function loadDashboard(queryString = selectedQuery()) {
+      const button = document.getElementById("refreshButton");
+      button.disabled = true;
+      button.textContent = "Refreshing…";
+      try {
+        const response = await fetch("/api/dashboard"
+          + (queryString ? "?" + queryString : ""), { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Dashboard request failed.");
+        render(data);
+      } catch (error) {
+        const box = document.getElementById("errorBox");
+        box.textContent = "Could not connect to CivicPulse data. Open this site at "
+          + "http://127.0.0.1:8088/ (not as a file) and make sure the dashboard, "
+          + "HDFS, and HiveServer2 are running; then select Refresh data. Details: "
+          + error.message;
+        box.style.display = "block";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Refresh data";
+      }
+    }
+
+    async function loadComplaints(page = complaintsPage) {
+      const body = document.getElementById("complaintsBody");
+      body.innerHTML = '<tr><td colspan="5" class="loading">Loading complaint rows from Hive…</td></tr>';
+      const query = new URLSearchParams(selectedQuery());
+      const search = document.getElementById("complaintSearch").value.trim();
+      const status = document.getElementById("statusFilter").value;
+      if (search) query.set("search", search);
+      if (status) query.set("status", status);
+      query.set("page", String(page));
+      query.set("pageSize", "25");
+      try {
+        const response = await fetch("/api/complaints?" + query.toString(), { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Complaint search failed.");
+        complaintsPage = data.page;
+        complaintSearchLoaded = true;
+        body.innerHTML = data.records.length ? data.records.map(row => `
+          <tr>
+            <td>${esc(row.createdDate)}</td>
+            <td class="category">${esc(row.complaintType)}</td>
+            <td>${esc(row.borough)} · ${esc(row.incidentZip)}</td>
+            <td>${esc(row.descriptor)}</td>
+            <td>${esc(row.status)}</td>
+          </tr>`).join("") : '<tr><td colspan="5" class="loading">No complaints match these filters.</td></tr>';
+        const first = data.total ? (page - 1) * data.pageSize + 1 : 0;
+        const last = Math.min(page * data.pageSize, data.total);
+        document.getElementById("complaintsPageInfo").textContent =
+          `${numberFormat.format(first)}–${numberFormat.format(last)} of ${numberFormat.format(data.total)} records`;
+        document.getElementById("previousPage").disabled = page <= 1;
+        document.getElementById("nextPage").disabled = last >= data.total;
+      } catch (error) {
+        complaintSearchLoaded = false;
+        body.innerHTML = `<tr><td colspan="5" class="loading">${esc(error.message)}</td></tr>`;
+        document.getElementById("complaintsPageInfo").textContent = "Could not load records";
+      }
+    }
+
+    async function loadDemoReports() {
+      const list = document.getElementById("demoReportsList");
+      list.innerHTML = '<div class="loading">Loading demo submissions from MongoDB…</div>';
+      try {
+        const response = await fetch("/api/demo-reports", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load submissions.");
+        list.innerHTML = data.reports.length ? data.reports.map(report => `
+          <article class="demo-report">
+            <strong>${esc(report.category)}</strong> · ${esc(report.borough)} · ${esc(report.date)}
+            <p>${esc(report.description)}</p>
+            <small>DEMO ONLY · submitted ${esc(report.submittedAt)}</small>
+          </article>`).join("") : '<div class="loading">No demo reports submitted yet.</div>';
+      } catch (error) {
+        list.innerHTML = `<div class="error" style="display:block">${esc(error.message)}</div>`;
+      }
+    }
+
+    async function submitDemoReport(event) {
+      event.preventDefault();
+      const message = document.getElementById("reportMessage");
+      message.className = "form-message";
+      message.textContent = "";
+      const payload = {
+        category: document.getElementById("reportCategory").value,
+        borough: document.getElementById("reportBorough").value,
+        date: document.getElementById("reportDate").value,
+        description: document.getElementById("reportDescription").value.trim()
+      };
+      try {
+        const response = await fetch("/api/demo-reports", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Submission failed.");
+        message.className = "form-message success";
+        message.textContent = "Saved as a demo submission in MongoDB, separate from public 311 data.";
+        document.getElementById("reportDescription").value = "";
+        loadDemoReports();
+      } catch (error) {
+        message.className = "form-message failure";
+        message.textContent = error.message;
+      }
+    }
+
+    async function showEvidence(patternId) {
+      const backdrop = document.getElementById("drawerBackdrop");
+      const list = document.getElementById("evidenceList");
+      backdrop.classList.add("open");
+      list.innerHTML = '<p class="loading">Loading evidence from MongoDB…</p>';
+      try {
+        const queryString = selectedQuery();
+        const response = await fetch("/api/patterns/" + encodeURIComponent(patternId)
+          + "/evidence" + (queryString ? "?" + queryString : ""));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load evidence.");
+        const pattern = data.pattern;
+        document.getElementById("drawerTitle").textContent =
+          pattern.borough + " · " + pattern.incidentZip;
+        document.getElementById("drawerSubtitle").textContent =
+          pattern.complaintType + " · observed in " + pattern.monthsObserved
+          + " months (" + (pattern.periods || "").split(",").join(", ")
+          + ") · " + numberFormat.format(pattern.totalComplaints) + " reports";
+        list.innerHTML = data.evidence.length ? data.evidence.map(record => `
+          <article class="evidence-card">
+            <div class="evidence-meta">
+              Request ${esc(record.requestId)} · ${esc(record.createdDate)}<br>
+              ${esc(record.borough)} · ZIP ${esc(record.incidentZip)} · ${esc(record.agency)}
+            </div>
+            <div class="evidence-issue">${esc(record.descriptor || record.complaintType)}</div>
+            <div class="evidence-meta">Status: <span class="status">${esc(record.status)}</span></div>
+          </article>`).join("") : '<p class="loading">No evidence examples were retained for this pattern.</p>';
+      } catch (error) {
+        list.innerHTML = '<p class="error" style="display:block">' + esc(error.message) + '</p>';
+      }
+    }
+
+    document.getElementById("refreshButton").addEventListener("click", () => loadDashboard());
+    document.getElementById("searchComplaints").addEventListener("click", () => loadComplaints(1));
+    document.getElementById("complaintSearch").addEventListener("keydown", event => {
+      if (event.key === "Enter") loadComplaints(1);
+    });
+    document.getElementById("statusFilter").addEventListener("change", () => loadComplaints(1));
+    document.getElementById("previousPage").addEventListener("click", () =>
+      loadComplaints(Math.max(1, complaintsPage - 1)));
+    document.getElementById("nextPage").addEventListener("click", () =>
+      loadComplaints(complaintsPage + 1));
+    document.getElementById("reportForm").addEventListener("submit", submitDemoReport);
+    document.querySelectorAll("[data-tab]").forEach(button => {
+      button.addEventListener("click", () => selectTab(button.dataset.tab));
+      button.addEventListener("keydown", event => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        const tabs = [...document.querySelectorAll("[data-tab]")];
+        const index = tabs.indexOf(button);
+        const offset = event.key === "ArrowDown" ? 1 : -1;
+        const next = tabs[(index + offset + tabs.length) % tabs.length];
+        next.focus();
+        selectTab(next.dataset.tab);
+      });
+    });
+    document.getElementById("filtersForm").addEventListener("submit", event => {
+      event.preventDefault();
+      loadDashboard("");
+    });
+    document.getElementById("resetFilters").addEventListener("click", () => {
+      if (!dashboardData) return;
+      document.getElementById("fromDate").value = dashboardData.dateRange.min;
+      document.getElementById("toDate").value = dashboardData.dateRange.max;
+      document.getElementById("boroughFilter").value = "";
+      document.getElementById("categoryFilter").value = "";
+      loadDashboard();
+    });
+    document.getElementById("closeDrawer").addEventListener("click", () =>
+      document.getElementById("drawerBackdrop").classList.remove("open"));
+    document.getElementById("drawerBackdrop").addEventListener("click", event => {
+      if (event.target.id === "drawerBackdrop") event.currentTarget.classList.remove("open");
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") document.getElementById("drawerBackdrop").classList.remove("open");
+    });
+    window.addEventListener("resize", () => {
+      if (!dashboardData) return;
+      const active = document.querySelector('[data-tab][aria-selected="true"]');
+      if (active) selectTab(active.dataset.tab, false);
+    });
+    const initialTab = window.location.hash.slice(1);
+    if (["overview", "trends", "geography", "patterns", "browse", "report"].includes(initialTab)) {
+      selectTab(initialTab, false);
+    }
+    loadDashboard();
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Compiled Java files
+build/
+*.class
+
+# Logs
+*.log
+dashboard.err
+dashboard.log
+
+# Incomplete downloads and temporary files
+*.part
+*:Zone.Identifier
+
+# Large datasets and temporary recovery files
+data/raw/311_full_incomplete.csv
+data/raw/311_sample.json
+data/raw/full_dataset/*.csv
+data/raw/full_dataset/*.csv.part
+data/raw/full_dataset/*.json
+data/raw/full_dataset/recovery_backup/
