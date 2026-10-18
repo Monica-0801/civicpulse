@@ -1,4 +1,4 @@
-# CivicPulse — A Big Data-Based Public Complaint Pattern Intelligence System
+# CivicPulse - A Big Data-Based Public Complaint Pattern Intelligence System
 
 ## Overview
 
